@@ -119,23 +119,47 @@ class TransformerVectorizer(TextVectorizer):
         return embeddings
 
 class VectorizationPipeline:
-    def __init__(self, vectorizer: TextVectorizer):
+    def __init__(self, vectorizer: TextVectorizer, chunk_size=500, overlap=100):
         logging.debug(f"Initializing VectorizationPipeline with {vectorizer.__class__.__name__}")
         self.vectorizer = vectorizer
+        self.chunk_size = chunk_size
+        self.overlap = overlap
+
+    def _chunk_all_texts(self, texts: list[str]) -> list[str]:
+        logging.debug("Starting chunking of all texts")
+        all_chunks = []
+        for text in texts:
+            chunks = chunk_text(text, self.chunk_size, self.overlap)
+            logging.debug(f"Original text length: {len(text)} → {len(chunks)} chunks")
+            all_chunks.extend(chunks)
+        return all_chunks
 
     def fit(self, texts: list[str]):
         logging.debug(f"Pipeline fit called with {len(texts)} texts")
-        self.vectorizer.fit(texts)
+        chunks = self._chunk_all_texts(texts)
+        self.vectorizer.fit(chunks)
         logging.debug("Pipeline fit completed")
 
     def transform(self, texts: list[str]):
         logging.debug(f"Pipeline transform called with {len(texts)} texts")
-        transformed = self.vectorizer.transform(texts)
+        chunks = self._chunk_all_texts(texts)
+        transformed = self.vectorizer.transform(chunks)
         logging.debug("Pipeline transform completed")
         return transformed
 
     def fit_transform(self, texts: list[str]):
         logging.debug(f"Pipeline fit_transform called with {len(texts)} texts")
-        transformed = self.vectorizer.fit_transform(texts)
+        chunks = self._chunk_all_texts(texts)
+        transformed = self.vectorizer.fit_transform(chunks)
         logging.debug("Pipeline fit_transform completed")
         return transformed
+
+
+def chunk_text(text, chunk_size=500, overlap=100):
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += chunk_size - overlap
+    return chunks
